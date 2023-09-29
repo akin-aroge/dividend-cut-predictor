@@ -6,4 +6,4 @@ format:
 	black .
 
 lint:
-	pylint --disable=R,C *.py
+	pylint --disable=R,C  --ignore-patterns=\\*.ipynb *.py 
