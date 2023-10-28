@@ -15,3 +15,4 @@ def load_value(fname):
     with open(fname, "rb") as f:
         value = pickle.load(f)
     return value
+

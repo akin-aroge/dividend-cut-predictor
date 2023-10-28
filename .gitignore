@@ -44,7 +44,12 @@ cover/
 
 # Environments
 .env
+.venv
 
 # Rough work
 tutorial/
 rough/
+
+
+# vscode
+.vscode
