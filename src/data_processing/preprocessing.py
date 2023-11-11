@@ -1,12 +1,11 @@
 """ List of functions for data processing. """
 
 from typing import Literal, Sequence
-from numpy import ndarray
-from scipy.sparse import spmatrix
 from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.utils import resample
 from sklearn.compose import ColumnTransformer
+from imblearn.over_sampling import SMOTE
 import pandas as pd
 import numpy as np
 import logging
@@ -71,6 +70,7 @@ class CollinearColsRemover(BaseEstimator, TransformerMixin):
         X = X.drop(self.cols_to_drop, axis=1)
         new_n_cols = X.shape[1]
         n_cols_dropped = n_cols - new_n_cols
+        # print(type(X))
         logging.getLogger(self.__class__.__name__).info(f'dropped {n_cols_dropped} cols')
         return X
 
@@ -88,29 +88,87 @@ class CollinearColsRemover(BaseEstimator, TransformerMixin):
         
         return cols_to_drop
 
-class ColumnsOrdinalEncoder(ColumnTransformer):
+# class ColumnsOrdinalEncoder(ColumnTransformer):
 
-    def __init__(self, col_names, convert_to_int=True) -> None:
+#     def __init__(self, col_names, convert_to_int=True) -> None:
+#         self.col_names = col_names
+#         self.convert_to_int = convert_to_int
+#         transformer = ('categorical_encoding', 
+#                        OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), 
+#                        self.col_names)
+#         super().__init__(transformers=[transformer], remainder='passthrough', verbose_feature_names_out=False)
+
+
+#     # def fit(self, X, y= None):
+#     #     print('here')
+#     #     return super().fit(X, y)
+    
+#     def transform(self, X):
+#         print('here')
+#         result_array = super().transform(X)
+
+#         col_names = self.get_feature_names_out()
+#         X = pd.DataFrame(result_array, columns=col_names)
+#         if self.convert_to_int:
+#             X[self.col_names] = X[self.col_names].astype('int')
+#         print(type(X))
+#         logging.getLogger(self.__class__.__name__).info(f'transformed categorical colums:{self.col_names}')
+        
+#         return X
+    
+
+class ColumnsOrdinalEncoder(OrdinalEncoder):
+
+    def __init__(self, col_names) -> None:
         self.col_names = col_names
-        self.convert_to_int = convert_to_int
-        transformer = ('categorical_encoding', 
-                       OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), 
-                       self.col_names)
-        super().__init__(transformers=[transformer], remainder='passthrough', verbose_feature_names_out=False)
+        
+        super().__init__(dtype=int)
 
-    def fit(self, X, y= None):
-        return super().fit(X, y)
+    def fit(self, X, y=None):
+        data_subset = X[self.col_names]
+
+        return super().fit(X=data_subset)
     
     def transform(self, X):
-        result_array = super().transform(X)
+        data_subset = X[self.col_names]
+        transformed_data = super().transform(data_subset)
 
-        col_names = self.get_feature_names_out()
-        X = pd.DataFrame(result_array, columns=col_names)
-        if self.convert_to_int:
-            X[self.col_names] = X[self.col_names].astype('int')
+        X[self.col_names] = transformed_data
 
-        logging.getLogger(self.__class__.__name__).info(f'transformed categorical colums:{self.col_names}')
         return X
+    
+
+
+        
+
+
+# class ColumnsOrdinalEncoder(ColumnTransformer):
+
+#     def __init__(self, col_names, convert_to_int=True) -> None:
+#         print('heare')
+#         self.col_names = col_names
+#         self.convert_to_int = convert_to_int
+#         transformer = ('categorical_encoding', 
+#                        OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), 
+#                        self.col_names)
+#         super().__init__(transformers=[transformer], remainder='passthrough', verbose_feature_names_out=False)
+        
+
+#     def fit_transform(self, X, y=None):
+
+#         print('here')
+
+#         super().fit_transform(X)
+#         result_array = super().transform(X)
+#         col_names = self.get_feature_names_out()
+#         X = pd.DataFrame(result_array, columns=col_names)
+#         if self.convert_to_int:
+#             X[self.col_names] = X[self.col_names].astype('int')
+#         logging.getLogger(self.__class__.__name__).info(f'transformed categorical colums:{self.col_names}')
+        
+#         # transformed_data = self.transform(X)
+#         return X
+    
     
 class BinarizeCol(BaseEstimator, TransformerMixin):
 
@@ -122,6 +180,8 @@ class BinarizeCol(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X:pd.DataFrame):
+        # print(type(X))
+        print(self.col_name)
         X[self.col_name] = np.where(X[self.col_name]==self.true_val, 1, 0)
         logging.getLogger(self.__class__.__name__).info(f'bianrized {self.col_name}')
         return X
@@ -140,4 +200,37 @@ class XyDataSplitter(BaseEstimator, TransformerMixin):
         logging.getLogger(self.__class__.__name__).info(f'split data into X and y')
         return X, y
 
+
+class SMOTEBalancer(BaseEstimator, TransformerMixin):
+
+    def __init__(self, label_col_name:str, random_state=None) -> None:
+        self.random_state = random_state
+        self.label_col_name = label_col_name
+        self.X_resampled = None
+        self.y_resampled = None
+        
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X, y=None):
+
+        X, y = self._split_Xy(X, label_col_name=self.label_col_name)
+        X_resampled, y_resampled = SMOTE(random_state=self.random_state).fit_resample(X, y)
+        
+        initial_label_counts = y.value_counts().to_dict()
+        new_label_counts = y_resampled.value_counts().to_dict()
+        logger.info(f"balanced data, initial label counts:{initial_label_counts} | new label counts:{new_label_counts}")
+        
+        resampled_data = X_resampled
+        resampled_data[self.label_col_name] = y_resampled
+        
+        return resampled_data
+
+    def _split_Xy(df:pd.DataFrame, label_col_name:str):
+
+        X = df.drop(label_col_name, axis=1)
+        y = df[label_col_name]
+
+        return X, y
 
