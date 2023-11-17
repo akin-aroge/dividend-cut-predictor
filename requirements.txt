@@ -5,4 +5,5 @@ matplotlib==3.8.0
 yfinance==0.2.30
 jupyter==1.0.0
 python-dotenv==1.0.0
+optuna==3.4.0
 # seaborn==0.13.0
