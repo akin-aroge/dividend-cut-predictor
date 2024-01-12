@@ -88,33 +88,6 @@ class CollinearColsRemover(BaseEstimator, TransformerMixin):
         
         return cols_to_drop
 
-# class ColumnsOrdinalEncoder(ColumnTransformer):
-
-#     def __init__(self, col_names, convert_to_int=True) -> None:
-#         self.col_names = col_names
-#         self.convert_to_int = convert_to_int
-#         transformer = ('categorical_encoding', 
-#                        OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), 
-#                        self.col_names)
-#         super().__init__(transformers=[transformer], remainder='passthrough', verbose_feature_names_out=False)
-
-
-#     # def fit(self, X, y= None):
-#     #     print('here')
-#     #     return super().fit(X, y)
-    
-#     def transform(self, X):
-#         print('here')
-#         result_array = super().transform(X)
-
-#         col_names = self.get_feature_names_out()
-#         X = pd.DataFrame(result_array, columns=col_names)
-#         if self.convert_to_int:
-#             X[self.col_names] = X[self.col_names].astype('int')
-#         print(type(X))
-#         logging.getLogger(self.__class__.__name__).info(f'transformed categorical colums:{self.col_names}')
-        
-#         return X
     
 
 class ColumnsOrdinalEncoder(OrdinalEncoder):
@@ -140,34 +113,6 @@ class ColumnsOrdinalEncoder(OrdinalEncoder):
 
 
         
-
-
-# class ColumnsOrdinalEncoder(ColumnTransformer):
-
-#     def __init__(self, col_names, convert_to_int=True) -> None:
-#         print('heare')
-#         self.col_names = col_names
-#         self.convert_to_int = convert_to_int
-#         transformer = ('categorical_encoding', 
-#                        OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1), 
-#                        self.col_names)
-#         super().__init__(transformers=[transformer], remainder='passthrough', verbose_feature_names_out=False)
-        
-
-#     def fit_transform(self, X, y=None):
-
-#         print('here')
-
-#         super().fit_transform(X)
-#         result_array = super().transform(X)
-#         col_names = self.get_feature_names_out()
-#         X = pd.DataFrame(result_array, columns=col_names)
-#         if self.convert_to_int:
-#             X[self.col_names] = X[self.col_names].astype('int')
-#         logging.getLogger(self.__class__.__name__).info(f'transformed categorical colums:{self.col_names}')
-        
-#         # transformed_data = self.transform(X)
-#         return X
     
     
 class BinarizeCol(BaseEstimator, TransformerMixin):
@@ -180,10 +125,9 @@ class BinarizeCol(BaseEstimator, TransformerMixin):
         return self
     
     def transform(self, X:pd.DataFrame):
-        # print(type(X))
-        print(self.col_name)
+
         X[self.col_name] = np.where(X[self.col_name]==self.true_val, 1, 0)
-        logging.getLogger(self.__class__.__name__).info(f'bianrized {self.col_name}')
+        logging.getLogger(self.__class__.__name__).info(f'binarized {self.col_name}')
         return X
 
 class XyDataSplitter(BaseEstimator, TransformerMixin):

@@ -6,34 +6,45 @@ import logging
 import pathlib
 import optuna
 from sklearn.metrics import roc_auc_score, classification_report
+from sklearn.pipeline import Pipeline
+import sklearn
 from src.modelling import models
+from src.modelling import transforms
 
 
 from src.utils import utils
 
 logger = logging.getLogger(__name__)
-# proj_root = utils.get_proj_root()
-
-# config = configparser.ConfigParser(interpolation=None)
-# config.read(proj_root.joinpath('config/data_config.ini'))
 
 class ModelTrainer():
 
-    def __init__(self, model_class:models.WrappedModel, 
-                 training_data, testing_data, label_col_name, model_output_path) -> None:
+    def __init__(self, model_class:models.WrappedModel, transform_pipeline:Pipeline,
+                 training_data, testing_data, label_col_name, model_output_path, 
+                 balance_data:bool=True) -> None:
 
-        self.direction=None
+        # self.direction=None
         self.best_params = None
         self.model_output_path = model_output_path
         self.model_class = model_class
-        self.n_trials = 100
-        self.best_score = None
-        # self.training_data_path = training_data_path
+        # self.n_trials = n_trials
+        self.tune_best_score = None
         self.training_data = training_data
         self.testing_data = testing_data
         self.label_col_name = label_col_name
+        self.transform_pipeline = transform_pipeline
+        self.trained_model=None
 
-        # self.model=None
+
+        # if balance_data:
+        #     # transform_pipeline = sklearn.clone(self.transform_pipeline)
+            
+        #     # data = transform_pipeline.fit_transform(self.training_data)
+            
+        #     self.training_data = transforms.balance_data(df=self.training_data, label_col_name=self.label_col_name)
+            
+
+    def get_optimal_features():
+        pass
 
 
     def tune_model(self, n_trials, maximize=True):
@@ -44,52 +55,72 @@ class ModelTrainer():
             direction = 'minimize'
         self.direction=direction
 
+
         X_train, y_train = split_Xy(self.training_data, label_col_name=self.label_col_name)
+
 
         study = optuna.create_study(direction=direction)
         study.optimize(lambda trial: self.model_class.objective_function(
-            trial=trial, X=X_train, y=y_train),
+            trial=trial, X=X_train, y=y_train, 
+            transform_pipeline=self.transform_pipeline),
             n_trials=n_trials
         )
 
         self.best_params = study.best_params
-        self.best_score = study.best_value
+        self.tune_best_score = study.best_value
         self.model_class.tuned_params = study.best_params
         # model = self.model_class.init_model(params=self.best_params)
         self.model_class.init_model()
         # self.model_class.model = model
         self.model_class.is_tuned=True
-        print(f'best score is: {self.best_score}')
+        print(f'best score is: {self.tune_best_score}')
 
-    def train_model(self,  save_model=True):
+    def train_model(self,  save_model=True) -> Pipeline:
 
         X_train, y_train = split_Xy(self.training_data, label_col_name=self.label_col_name)
 
         model_is_tuned = self.model_class.is_tuned
         if not model_is_tuned:
-            print('info: model is not tuned')
+            logging.getLogger(self.__class__.__name__).info('model is not tuned')
 
-        trained_model = self.model_class.train(X=X_train, y=y_train)
+        trained_model = self.model_class.train(X=X_train, y=y_train, transform_pipeline=self.transform_pipeline)
 
         if save_model:
             utils.save_value(trained_model, fname=self.model_output_path)
 
+        self.trained_model = trained_model
+
         return trained_model
     
     def evaluate_model(self, show_report=True):
-        print(self.model_class.model.classes_)
+        
         X_test, y_test = split_Xy(self.testing_data, label_col_name=self.label_col_name)
 
-        y_pred_prob = self.model_class.predict(X_test, return_prob=True)
-        y_pred = self.model_class.predict(X_test, return_prob=False)
+        y_pred_prob = self.trained_model.predict_proba(X_test)[:, 1]
+        y_pred = self.trained_model.predict(X_test)
+        score = roc_auc_score(y_true=y_test, y_score=y_pred_prob)
+
+        if show_report:
+            print(classification_report(y_true=y_test, y_pred=y_pred))
+        return score    
+    
+    def inf_model(self, show_report=True):
+    
+        X_test, y_test = split_Xy(self.testing_data, label_col_name=self.label_col_name)
+
+        model = utils.load_value(self.model_output_path)
+        logging.getLogger(self.__class__.__name__).info(f'model loaded: {model.steps[-1][-1]}')
+        
+        y_pred_prob = model.predict_proba(X_test)[:, 1]
+        y_pred = model.predict(X_test)
         score = roc_auc_score(y_true=y_test, y_score=y_pred_prob)
 
         if show_report:
             print(classification_report(y_true=y_test, y_pred=y_pred))
         return score
-
-
-
+    
+    
+    
 
 def get_features(path:pathlib.Path):
 
@@ -132,6 +163,8 @@ def get_model_class(model_name:str):
         model = models.LogisticWrapper
     elif model_name == 'random_forest':
         model = models.RandomForestWrapper
+    elif model_name== 'xgboost':
+        model = models.XgboostWrapper
 
     return model
 
@@ -140,7 +173,3 @@ def get_model_class(model_name:str):
 def save_data(data:pd.DataFrame, path:pathlib.Path):
 
     data.to_csv(path_or_buf=path, index=False)
-
-
-
-

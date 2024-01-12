@@ -35,7 +35,7 @@ def main():
     API_KEY_FMP = os.environ.get('API_KEY_FMP')
 
     start_year = int(config['year_limits']['start_year'])
-    end_year = int(config['year_limits']['start_year'])
+    end_year = int(config['year_limits']['end_year'])
     COMPANY_LIST_URL = config['urls']['COMPANY_LIST']
 
     num_of_years = end_year - start_year + 1
@@ -49,7 +49,7 @@ def main():
     data_extractor = company_data_extractor(API_KEY_FRED, API_KEY_FMP)
     dataset = []
     company_number = 1
-    for ticker in tickers[:3]:
+    for ticker in tickers:
         # print(f"{company_number}: Obtaining data for {ticker}")
         logger.info(f'obtaining data for company number {company_number} ({ticker})')
         company_number = company_number + 1
