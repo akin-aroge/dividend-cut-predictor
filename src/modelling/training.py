@@ -129,6 +129,7 @@ def get_training_data(file_path: pathlib.Path = None):
     return df
 
 
+
 def train_test_split(df: pd.DataFrame, final_year: int, save_data=False):
     # final_year = int(config['year_limits']['end_year'])
 
@@ -159,6 +160,16 @@ def get_model_class(model_name: str):
 
     return model
 
+def get_categorical_cols(data:pd.DataFrame, raw_data_cat_col_names=None):
+
+    if raw_data_cat_col_names is None:
+
+        raw_data_cat_col_names = ["year", "industry", "symbol"]
+
+    data_col_names = data.columns.values
+    cat_cols =  set(data_col_names) & set(raw_data_cat_col_names)
+
+    return list(cat_cols)
 
 def save_data(data: pd.DataFrame, path: pathlib.Path):
     data.to_csv(path_or_buf=path, index=False)

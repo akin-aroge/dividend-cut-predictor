@@ -51,45 +51,55 @@ class CollinearColsRemover(BaseEstimator, TransformerMixin):
 
 
 class ColumnsOrdinalEncoder(BaseEstimator, TransformerMixin):
-    def __init__(self, col_names) -> None:
+    def __init__(self, col_names=None) -> None:
         self.col_names = col_names
         self.ordinal_encoder = OrdinalEncoder(
             handle_unknown="use_encoded_value", unknown_value=-1
         )
-
+        self.cat_cols = None
         # super().__init__(dtype=int)
 
     def fit(self, X, y=None):
-        data_subset = X[self.col_names]
-        self.ordinal_encoder.fit(data_subset)
+        cat_col_names = train.get_categorical_cols(X, raw_data_cat_col_names=self.col_names)
+        self.cat_cols = cat_col_names
+        if cat_col_names: # check if list is not empty
+            data_subset = X[cat_col_names]
+            self.ordinal_encoder.fit(data_subset)
 
         return self
 
     def transform(self, X):
-        data_subset = X[self.col_names].copy()
-        transformed_data = self.ordinal_encoder.transform(data_subset)
+        if self.cat_cols: # check if list is not empty
+            data_subset = X[self.cat_cols].copy()
+            transformed_data = self.ordinal_encoder.transform(data_subset)
 
-        data = X.copy()
-        data[self.col_names] = transformed_data
-        logging.getLogger(self.__class__.__name__).info(f"cat.cols. transformed")
+            data = X.copy()
+            data[self.cat_cols] = transformed_data 
+        else:
+            data = X.copy()
+        logging.getLogger(self.__class__.__name__).info(f"cat.cols. transformed: {self.cat_cols}")
         # logging.getLogger(self.__class__.__name__).info(f'cat.cols. encoded: \n {X.head(2)}')
 
         return data
 
     def inverse_transform(self, X):
-        data_subset = X[self.col_names].copy()
-        transformed_data = self.ordinal_encoder.inverse_transform(data_subset)
-        data = X.copy()
-        data[self.col_names] = transformed_data
+        if self.cat_cols:
+            data_subset = X[self.cat_cols].copy()
+            transformed_data = self.ordinal_encoder.inverse_transform(data_subset)
+            data = X.copy()
+            data[self.cat_cols] = transformed_data
+        else:
+            data = X.copy()
         return data
 
 
 class OptimalColumnSelector(BaseEstimator, TransformerMixin):
-    def __init__(self, n_min_cols=2, optimal_cols_path=None) -> None:
+    def __init__(self, n_min_cols=2, optimal_cols_path=None, label_col_name=None) -> None:
         super().__init__()
         self.n_min_cols = n_min_cols
         self.optimal_cols_path = optimal_cols_path
         self.optimal_cols = None
+        self.label_col_name = label_col_name
 
     def fit(self, X: pd.DataFrame, y=None):
         if self.optimal_cols_path is not None:
@@ -104,10 +114,14 @@ class OptimalColumnSelector(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X: pd.DataFrame):
-        X = X.loc[:, self.optimal_cols].copy()
+        optimal_cols = self.optimal_cols.copy()
+        if self.label_col_name is not None:
+            optimal_cols.append(self.label_col_name)
+
+        X = X.loc[:, optimal_cols].copy()
 
         logging.getLogger(self.__class__.__name__).info(
-            f"selected columns: {self.optimal_cols} "
+            f"selected columns: {optimal_cols} "
         )
         return X
 

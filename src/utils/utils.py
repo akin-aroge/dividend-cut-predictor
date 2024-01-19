@@ -3,6 +3,7 @@
 import pathlib
 import pickle
 import nbformat
+import configparser
 from nbconvert.preprocessors import ExecutePreprocessor
 
 
@@ -35,3 +36,19 @@ def run_notebook(notebook_path: pathlib.Path):
     with open(output_f_path, "w", encoding="utf-8") as f:
         nbformat.write(nb=nb, fp=f)
 
+def get_config(config_rel_path:pathlib.Path, interpolation=None):
+
+    proj_root = get_proj_root()
+
+    config = configparser.ConfigParser(interpolation=interpolation)
+    config.read(proj_root.joinpath(config_rel_path))   
+
+    return config
+
+def get_full_path(rel_path:pathlib.Path):
+
+    proj_root = get_proj_root()
+
+    full_path = proj_root.joinpath(rel_path)
+
+    return full_path

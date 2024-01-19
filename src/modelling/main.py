@@ -11,14 +11,16 @@ from src.modelling import transforms
 warnings.filterwarnings("ignore")
 
 
-def main(model_name: str, tune_trials=1, balance_data=False):
+def main(model_name: str, tune_trials=1, balance_data=False, preselect_cols=False):
     logger = logging.getLogger(__name__)
     proj_root = utils.get_proj_root()
 
     config = configparser.ConfigParser(interpolation=None)
     config.read(proj_root.joinpath("config/data_config.ini"))
 
-    final_year = int(config["year_limits"]["end_year"])
+    # final_year = int(config["year_limits"]["end_year"])
+    inf_year = int(config["year_limits"]["inf_year"])
+    final_year = inf_year - 2
 
     preprocessed_data_rel_path = config["data_paths"]["preprocessed_data_path"]
     preprocessed_data_path = proj_root.joinpath(preprocessed_data_rel_path)
@@ -32,48 +34,59 @@ def main(model_name: str, tune_trials=1, balance_data=False):
     model_class = train.get_model_class(model_name=model_name)
     model = model_class(**model_params)
 
-    categorical_features = ["industry", "symbol"]
+    categorical_col_names = ["year", "industry", "symbol"]
     # collinear_thresh = 0.98
 
     # get data
     preprocessed_data = train.get_training_data(file_path=preprocessed_data_path)
 
     # split dataset
-    training_data_subset, testing_data_subset = train.train_test_split(
+    training_data, testing_data = train.train_test_split(
         df=preprocessed_data, final_year=final_year
     )
 
+    
+    if preselect_cols:
+        optimal_col_selector = transforms.OptimalColumnSelector(optimal_cols_path=feature_set_path, 
+                                                                label_col_name=label_col_name)
+
+        training_data = optimal_col_selector.fit_transform(training_data)
+        testing_data = optimal_col_selector.transform(testing_data)
+        logger.info(f"columns pre-selected: {list(training_data.columns)}")
+
+    # categorical_col_names = train.get_categorical_cols(training_data)
+    # print('categorical cols: ',categorical_col_names)
     if balance_data:
         # balance data
         cat_col_encoder = transforms.ColumnsOrdinalEncoder(
-            col_names=categorical_features
+            col_names=categorical_col_names
         )
-        training_data_subset = cat_col_encoder.fit_transform(training_data_subset)
-        training_data_subset = transforms.balance_data(
-            training_data_subset, label_col_name=label_col_name
+        training_data= cat_col_encoder.fit_transform(training_data)
+        training_data= transforms.balance_data(
+            training_data, label_col_name=label_col_name
         )
-        training_data_subset = cat_col_encoder.inverse_transform(training_data_subset)
-
+        training_data = cat_col_encoder.inverse_transform(training_data)
 
     pipeline = Pipeline(
         steps=[
             (
-                "cat_to_ordinal_cols",
-                transforms.ColumnsOrdinalEncoder(col_names=categorical_features),
-            ),
-            (
                 "select_optimal_cols",
                 transforms.OptimalColumnSelector(optimal_cols_path=feature_set_path),
             ),
+            (
+                "cat_to_ordinal_cols",
+                transforms.ColumnsOrdinalEncoder(),
+            ),
         ]
     )
+
 
     model_output_path = model_output_dir.joinpath(model_name + ".pkl")
     trainer = train.ModelTrainer(
         model_class=model,
         transform_pipeline=pipeline,
-        training_data=training_data_subset,
-        testing_data=testing_data_subset,
+        training_data=training_data,
+        testing_data=testing_data,
         label_col_name=label_col_name,
         model_output_path=model_output_path
     )

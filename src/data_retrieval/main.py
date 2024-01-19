@@ -31,8 +31,13 @@ def main():
     API_KEY_FRED = os.environ.get("API_KEY_FRED")
     API_KEY_FMP = os.environ.get("API_KEY_FMP")
 
-    start_year = int(config["year_limits"]["start_year"])
-    end_year = int(config["year_limits"]["end_year"])
+    inf_year = int(config["year_limits"]["inf_year"])
+    n_hist_year = int(config["year_limits"]["n_hist_year"])
+    start_year = inf_year - 1 - n_hist_year
+    end_year = inf_year - 1
+
+    # start_year = int(config["year_limits"]["start_year"])
+    # end_year = int(config["year_limits"]["end_year"])
     COMPANY_LIST_URL = config["urls"]["COMPANY_LIST"]
 
     num_of_years = end_year - start_year + 1
@@ -46,7 +51,7 @@ def main():
     data_extractor = company_data_extractor(API_KEY_FRED, API_KEY_FMP)
     dataset = []
     company_number = 1
-    for ticker in tickers:
+    for ticker in tickers[:]:
         # print(f"{company_number}: Obtaining data for {ticker}")
         logger.info(f"obtaining data for company number {company_number} ({ticker})")
         company_number = company_number + 1
@@ -59,7 +64,8 @@ def main():
     dataset = pd.concat(dataset, ignore_index=True)
 
     # Save data to disk
-    raw_data_path = proj_root.joinpath("data/raw/stock_data5.csv")
+    raw_data_path = utils.get_full_path(config["data_paths"]["raw_data_path"])
+    # raw_data_path = proj_root.joinpath("data/raw/stock_data_test.csv")
     dataset.to_csv(raw_data_path, index=False)
 
 

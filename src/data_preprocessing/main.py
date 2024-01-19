@@ -6,7 +6,7 @@ import logging
 import warnings
 import configparser
 import argparse
-from src.data_processing import preprocessing as prep
+from src.data_preprocessing import preprocessing as prep
 from src.utils import utils
 
 

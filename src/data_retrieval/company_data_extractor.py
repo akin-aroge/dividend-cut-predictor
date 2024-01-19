@@ -17,7 +17,7 @@ proj_root = utils.get_proj_root()
 config = configparser.ConfigParser()
 config.read(proj_root.joinpath("config/data_config.ini"))
 
-BASE_URL = config["API"]["FMP_BASE_URL"]
+FMP_BASE_URL = config["API"]["FMP_BASE_URL"]
 FRED_BASE_URL = config["API"]["FRED_BASE_URL"]
 
 
@@ -26,7 +26,7 @@ class company_data_extractor:
     def __init__(self, API_KEY_FRED, API_KEY_FMP):
         self.API_KEY_FRED = API_KEY_FRED
         self.API_KEY_FMP = API_KEY_FMP
-        self.BASE_URL = BASE_URL
+        self.FMP_BASE_URL = FMP_BASE_URL
 
     def get_data(self, company_tick, start_year, end_year, num_of_years):
         company_tick = company_tick
@@ -36,7 +36,7 @@ class company_data_extractor:
 
         # Engineer Dividend Per Share (DPS) data (Dividend related predictors and the target variable)
         response = requests.get(
-            f"{self.BASE_URL}/historical-price-full/stock_dividend/{company_tick}?apikey={self.API_KEY_FMP}"
+            f"{self.FMP_BASE_URL}/historical-price-full/stock_dividend/{company_tick}?apikey={self.API_KEY_FMP}"
         )
         if response.status_code == 429:
             print("FMP API limit reached")
@@ -82,12 +82,12 @@ class company_data_extractor:
             0,  # If both are 0 then change is 0
             np.where(
                 dividends["last_year_dividend"] != 0,
-                ((dividends["adjDividend"] / dividends["last_year_dividend"]) - 1)
+                ((dividends["adjDividend"] / dividends["last_year_dividend"]) - 1)  #TODO: why -1?
                 * 100,
                 999,  # If last year dividend is 0 then return 999
             ),
         )
-        # Create the target column 'dps_change' based on the conditions
+        # Create the target column 'dps_change_next_year' based on the conditions
         dividends["dps_change_next_year"] = np.select(
             conditions, choices, default=np.nan
         )
@@ -106,8 +106,10 @@ class company_data_extractor:
         predictors["industry"] = yf.Ticker(company_tick).info.get("industry")
 
         # Key Financial Ratios
+        #TODO: appears this just gets data for last num_of_years
+        # also as at 20240115, final year is 2022
         response = requests.get(
-            f"{self.BASE_URL}/ratios/{company_tick}?limit={num_of_years}&apikey={self.API_KEY_FMP}"
+            f"{self.FMP_BASE_URL}/ratios/{company_tick}?limit={num_of_years}&apikey={self.API_KEY_FMP}"
         )
         # Check if all data is available
         data_length = len(response.json())
@@ -121,7 +123,7 @@ class company_data_extractor:
             .sort_values("date", ascending=True)
             .reset_index(drop=True)
         )
-        predictors = pd.concat([predictors, financial_ratios], axis="columns")
+        predictors = pd.concat([predictors, financial_ratios], axis="columns") 
         predictors.drop(["date", "period"], axis="columns", inplace=True)
 
         # Macroeconomics - Federal Interest Rate (Annualized)
